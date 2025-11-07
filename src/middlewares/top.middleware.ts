@@ -16,7 +16,8 @@ class TopMiddleWare {
       "http://localhost:5173",
       "http://localhost:5173/",
       "http://localhost:3000/",
-      "http://localhost:5173/"
+      "http://localhost:5173/",
+      "https://num-tree-frontend.vercel.app/"
     ];
 
     const origin = req.headers.origin as string;
