@@ -47,7 +47,7 @@ class App {
     constructor() {
         this.app = (0, express_1.default)();
         this.app.get("/", (req, res) => {
-            res.json("it's working....");
+            res.json("itSSSSSSSSSSSSSSSSSS working....");
         });
         databse_1.default.connect();
     }
