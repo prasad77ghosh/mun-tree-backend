@@ -41,13 +41,23 @@ const http_1 = require("http");
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const databse_1 = __importDefault(require("./db/databse"));
+const cors_1 = __importDefault(require("cors"));
 class App {
     app;
     static server;
     constructor() {
         this.app = (0, express_1.default)();
+        this.app.use((0, cors_1.default)({
+            origin: "https://num-tree-frontend.vercel.app",
+            methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            allowedHeaders: ["Content-Type", "Authorization"],
+        }));
+        // Your other routes and middleware
+        this.app.get("/healthcheck", (req, res) => {
+            res.json({ status: "ok", message: "Healthcheck passed" });
+        });
         this.app.get("/", (req, res) => {
-            res.json("itSSSSSSSSSSSSSSSSSS working....");
+            res.json("it's working....");
         });
         databse_1.default.connect();
     }

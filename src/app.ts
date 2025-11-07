@@ -3,6 +3,7 @@ import { createServer, Server } from "http";
 import path from "path";
 import fs from "fs";
 import DB from "./db/databse";
+import cors from "cors";
 
 class App {
   public app: Application;
@@ -10,9 +11,22 @@ class App {
 
   constructor() {
     this.app = express();
+    this.app.use(
+      cors({
+        origin: "https://num-tree-frontend.vercel.app",
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+      })
+    );
+
+    // Your other routes and middleware
+    this.app.get("/healthcheck", (req, res) => {
+      res.json({ status: "ok", message: "Healthcheck passed" });
+    });
+
     this.app.get("/", (req, res) => {
-      res.json("itSSSSSSSSSSSSSSSSSS working....")
-    })
+      res.json("it's working....");
+    });
     DB.connect();
   }
 
