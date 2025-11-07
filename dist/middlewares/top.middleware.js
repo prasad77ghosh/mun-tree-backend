@@ -15,12 +15,13 @@ class TopMiddleWare {
     }
     allowCrossDomain(req, res, next) {
         const allAllowedOrigin = [
+            "https://num-tree-frontend.vercel.app",
             "http://localhost:3000",
             "http://localhost:5173",
             "http://localhost:5173/",
             "http://localhost:3000/",
             "http://localhost:5173/",
-            "https://num-tree-frontend.vercel.app/"
+            "https://num-tree-frontend.vercel.app/",
         ];
         const origin = req.headers.origin;
         if (allAllowedOrigin.includes(origin)) {
