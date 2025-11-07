@@ -51,6 +51,7 @@ class App {
             origin: "https://num-tree-frontend.vercel.app",
             methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             allowedHeaders: ["Content-Type", "Authorization"],
+            credentials: true
         }));
         // Your other routes and middleware
         this.app.get("/healthcheck", (req, res) => {
