@@ -11,7 +11,7 @@ class App {
   constructor() {
     this.app = express();
     this.app.get("/", (req, res) => {
-      res.json("it's working....")
+      res.json("itSSSSSSSSSSSSSSSSSS working....")
     })
     DB.connect();
   }
