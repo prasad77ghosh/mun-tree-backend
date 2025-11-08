@@ -51,7 +51,7 @@ class App {
             origin: "https://num-tree-frontend.vercel.app",
             methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             allowedHeaders: ["Content-Type", "Authorization"],
-            credentials: true
+            credentials: true,
         }));
         // Your other routes and middleware
         this.app.get("/healthcheck", (req, res) => {
@@ -82,16 +82,16 @@ class App {
             }
         });
     }
-    routes() {
+    async routes() {
         const subRoutes = fs_1.default.readdirSync(path_1.default.join(__dirname, "/routes"));
-        subRoutes.forEach((file) => {
+        for (const file of subRoutes) {
             if (file.includes(".routes.")) {
-                Promise.resolve(`${path_1.default.join(__dirname + "/routes/" + file)}`).then(s => __importStar(require(s))).then((route) => {
-                    const rootPath = `/api/v1/${new route.default().path}`;
-                    this.app.use(rootPath, new route.default().router);
-                });
+                const routeModule = await Promise.resolve(`${path_1.default.join(__dirname, "/routes/", file)}`).then(s => __importStar(require(s)));
+                const routeInstance = new routeModule.default();
+                const rootPath = `/api/v1/${routeInstance.path}`;
+                this.app.use(rootPath, routeInstance.router);
             }
-        });
+        }
     }
 }
 exports.default = App;

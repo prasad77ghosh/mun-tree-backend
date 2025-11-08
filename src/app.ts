@@ -16,7 +16,7 @@ class App {
         origin: "https://num-tree-frontend.vercel.app",
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allowedHeaders: ["Content-Type", "Authorization"],
-        credentials: true 
+        credentials: true,
       })
     );
 
@@ -55,16 +55,18 @@ class App {
     });
   }
 
-  private routes() {
+  private async routes() {
     const subRoutes = fs.readdirSync(path.join(__dirname, "/routes"));
-    subRoutes.forEach((file: any): void => {
+    for (const file of subRoutes) {
       if (file.includes(".routes.")) {
-        import(path.join(__dirname + "/routes/" + file)).then((route) => {
-          const rootPath = `/api/v1/${new route.default().path}`;
-          this.app.use(rootPath, new route.default().router);
-        });
+        const routeModule = await import(
+          path.join(__dirname, "/routes/", file)
+        );
+        const routeInstance = new routeModule.default();
+        const rootPath = `/api/v1/${routeInstance.path}`;
+        this.app.use(rootPath, routeInstance.router);
       }
-    });
+    }
   }
 }
 
