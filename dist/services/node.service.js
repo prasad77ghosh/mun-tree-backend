@@ -162,7 +162,7 @@ class NodeService {
             .sort({ _id: 1 }) // ascending
             .limit(queryLimit)
             .select("_id parentId rootId operation rightValue result authorId status createdAt")
-            .populate("authorId", "username")
+            .populate("authorId", "name, email")
             .lean();
         // If empty
         if (!nodes.length) {
@@ -180,7 +180,7 @@ class NodeService {
         let rootNode = null;
         if (!cursor) {
             rootNode = await node_model_1.NodeSchema.findOne({ _id: rootId, parentId: null })
-                .populate("authorId", "username")
+                .populate("authorId", "name, email")
                 .select("_id parentId rootId operation rightValue result authorId status createdAt")
                 .lean();
         }

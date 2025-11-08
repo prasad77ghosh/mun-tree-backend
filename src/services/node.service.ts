@@ -151,7 +151,7 @@ export class NodeService {
       .select(
         "_id parentId rootId operation rightValue result authorId status createdAt"
       )
-      .populate("authorId", "username")
+      .populate("authorId", "name, email")
       .lean();
 
     // If empty
@@ -171,7 +171,7 @@ export class NodeService {
     let rootNode = null;
     if (!cursor) {
       rootNode = await NodeSchema.findOne({ _id: rootId, parentId: null })
-        .populate("authorId", "username")
+        .populate("authorId", "name, email")
         .select(
           "_id parentId rootId operation rightValue result authorId status createdAt"
         )
