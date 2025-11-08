@@ -11,7 +11,6 @@ class App {
 
   constructor() {
     this.app = express();
-    this.init();
     this.app.use(
       cors({
         origin: "https://num-tree-frontend.vercel.app",
@@ -32,9 +31,7 @@ class App {
     DB.connect();
   }
 
-  private async init() {
-    await this.routes();
-  }
+  
 
   public listen(serverPort: number) {
     const options = {};
@@ -42,10 +39,14 @@ class App {
     App.server.listen(serverPort, (): void => {
       const middlewares = fs.readdirSync(path.join(__dirname, "/middlewares"));
       this.middleware(middlewares, "top.");
-      this.routes();
+      this.init();
       this.middleware(middlewares, "bottom.");
       console.log(`Listening on ${serverPort}...`);
     });
+  }
+
+  public async init() {
+    await this.routes();
   }
 
   private middleware(middlewares: any[], str: "bottom." | "top.") {
@@ -69,6 +70,7 @@ class App {
         );
         const routeInstance = new routeModule.default();
         const rootPath = `/api/v1/${routeInstance.path}`;
+        console.log("root-path--->", rootPath)
         this.app.use(rootPath, routeInstance.router);
       }
     }

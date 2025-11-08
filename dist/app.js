@@ -47,7 +47,6 @@ class App {
     static server;
     constructor() {
         this.app = (0, express_1.default)();
-        this.init();
         this.app.use((0, cors_1.default)({
             origin: "https://num-tree-frontend.vercel.app",
             methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -63,19 +62,19 @@ class App {
         });
         databse_1.default.connect();
     }
-    async init() {
-        await this.routes();
-    }
     listen(serverPort) {
         const options = {};
         App.server = (0, http_1.createServer)(options, this.app);
         App.server.listen(serverPort, () => {
             const middlewares = fs_1.default.readdirSync(path_1.default.join(__dirname, "/middlewares"));
             this.middleware(middlewares, "top.");
-            this.routes();
+            this.init();
             this.middleware(middlewares, "bottom.");
             console.log(`Listening on ${serverPort}...`);
         });
+    }
+    async init() {
+        await this.routes();
     }
     middleware(middlewares, str) {
         middlewares.forEach((middleware) => {
@@ -93,6 +92,7 @@ class App {
                 const routeModule = await Promise.resolve(`${path_1.default.join(__dirname, "/routes/", file)}`).then(s => __importStar(require(s)));
                 const routeInstance = new routeModule.default();
                 const rootPath = `/api/v1/${routeInstance.path}`;
+                console.log("root-path--->", rootPath);
                 this.app.use(rootPath, routeInstance.router);
             }
         }

@@ -4,8 +4,8 @@ declare class App {
     app: Application;
     static server: Server;
     constructor();
-    private init;
     listen(serverPort: number): void;
+    init(): Promise<void>;
     private middleware;
     private routes;
 }
