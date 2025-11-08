@@ -11,6 +11,7 @@ class App {
 
   constructor() {
     this.app = express();
+    this.init();
     this.app.use(
       cors({
         origin: "https://num-tree-frontend.vercel.app",
@@ -29,6 +30,10 @@ class App {
       res.json("it's working....");
     });
     DB.connect();
+  }
+
+  private async init() {
+    await this.routes();
   }
 
   public listen(serverPort: number) {

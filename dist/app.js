@@ -47,6 +47,7 @@ class App {
     static server;
     constructor() {
         this.app = (0, express_1.default)();
+        this.init();
         this.app.use((0, cors_1.default)({
             origin: "https://num-tree-frontend.vercel.app",
             methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -61,6 +62,9 @@ class App {
             res.json("it's working....");
         });
         databse_1.default.connect();
+    }
+    async init() {
+        await this.routes();
     }
     listen(serverPort) {
         const options = {};
