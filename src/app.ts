@@ -11,8 +11,6 @@ class App {
 
   constructor() {
     this.app = express();
-    this.app.use(express.json());
-    this.app.use(express.urlencoded({ extended: true }));
     this.app.use(
       cors({
         origin: "https://num-tree-frontend.vercel.app",
@@ -22,16 +20,7 @@ class App {
       })
     );
 
-    // Middleware to ensure database connection
-    this.app.use(async (req, res, next) => {
-      try {
-        await DB.connect();
-        next();
-      } catch (error) {
-        console.error('Database connection error:', error);
-        res.status(500).json({ error: 'Database connection failed' });
-      }
-    });
+    DB.connect();
 
     // Basic routes
     this.app.get("/healthcheck", async (req, res) => {
@@ -39,7 +28,9 @@ class App {
         await DB.connect();
         res.json({ status: "ok", message: "Healthcheck passed" });
       } catch (error) {
-        res.status(500).json({ status: "error", message: "Database connection failed" });
+        res
+          .status(500)
+          .json({ status: "error", message: "Database connection failed" });
       }
     });
 
@@ -47,8 +38,6 @@ class App {
       res.json("it's working....");
     });
   }
-
-  
 
   public listen(serverPort: number) {
     const options = {};
@@ -81,8 +70,8 @@ class App {
   private async routes() {
     try {
       // Import routes directly instead of using fs
-      const authRoutes = (await import('./routes/auth.routes')).default;
-      const nodeRoutes = (await import('./routes/node.routes')).default;
+      const authRoutes = (await import("./routes/auth.routes")).default;
+      const nodeRoutes = (await import("./routes/node.routes")).default;
 
       // Initialize routes
       const auth = new authRoutes();
@@ -92,9 +81,9 @@ class App {
       this.app.use(`/api/v1/${auth.path}`, auth.router);
       this.app.use(`/api/v1/${node.path}`, node.router);
 
-      console.log('Routes initialized successfully');
+      console.log("Routes initialized successfully");
     } catch (error) {
-      console.error('Error initializing routes:', error);
+      console.error("Error initializing routes:", error);
     }
   }
 }

@@ -1,1 +1,1 @@
-{"version":3,"file":"databse.d.ts","sourceRoot":"","sources":["../../src/db/databse.ts"],"names":[],"mappings":"AAAA,OAAO,QAAQ,MAAM,UAAU,CAAC;AAGhC,OAAO,CAAC,MAAM,CAAC;IACb,IAAI,QAAQ,EAAE,GAAG,CAAC;CACnB;AAED,cAAM,QAAQ;IACZ,OAAO,CAAC,MAAM,CAAC,GAAG,CAAkB;WAEhB,OAAO;WAiCP,UAAU;CAY/B;AAED,QAAA,MAAM,EAAE,iBAAW,CAAC;AACpB,eAAe,EAAE,CAAC"}
+{"version":3,"file":"databse.d.ts","sourceRoot":"","sources":["../../src/db/databse.ts"],"names":[],"mappings":"AAGA,cAAM,QAAQ;IACZ,OAAO,CAAC,MAAM,CAAC,GAAG,CAAkB;WACtB,OAAO;WAWP,UAAU;CAUzB;AAED,QAAA,MAAM,EAAE,iBAAW,CAAA;AACnB,eAAe,EAAE,CAAC"}

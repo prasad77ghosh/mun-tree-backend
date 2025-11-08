@@ -47,25 +47,13 @@ class App {
     static server;
     constructor() {
         this.app = (0, express_1.default)();
-        this.app.use(express_1.default.json());
-        this.app.use(express_1.default.urlencoded({ extended: true }));
         this.app.use((0, cors_1.default)({
             origin: "https://num-tree-frontend.vercel.app",
             methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             allowedHeaders: ["Content-Type", "Authorization"],
             credentials: true,
         }));
-        // Middleware to ensure database connection
-        this.app.use(async (req, res, next) => {
-            try {
-                await databse_1.default.connect();
-                next();
-            }
-            catch (error) {
-                console.error('Database connection error:', error);
-                res.status(500).json({ error: 'Database connection failed' });
-            }
-        });
+        databse_1.default.connect();
         // Basic routes
         this.app.get("/healthcheck", async (req, res) => {
             try {
@@ -73,7 +61,9 @@ class App {
                 res.json({ status: "ok", message: "Healthcheck passed" });
             }
             catch (error) {
-                res.status(500).json({ status: "error", message: "Database connection failed" });
+                res
+                    .status(500)
+                    .json({ status: "error", message: "Database connection failed" });
             }
         });
         this.app.get("/", (req, res) => {
@@ -106,18 +96,18 @@ class App {
     async routes() {
         try {
             // Import routes directly instead of using fs
-            const authRoutes = (await Promise.resolve().then(() => __importStar(require('./routes/auth.routes')))).default;
-            const nodeRoutes = (await Promise.resolve().then(() => __importStar(require('./routes/node.routes')))).default;
+            const authRoutes = (await Promise.resolve().then(() => __importStar(require("./routes/auth.routes")))).default;
+            const nodeRoutes = (await Promise.resolve().then(() => __importStar(require("./routes/node.routes")))).default;
             // Initialize routes
             const auth = new authRoutes();
             const node = new nodeRoutes();
             // Mount routes
             this.app.use(`/api/v1/${auth.path}`, auth.router);
             this.app.use(`/api/v1/${node.path}`, node.router);
-            console.log('Routes initialized successfully');
+            console.log("Routes initialized successfully");
         }
         catch (error) {
-            console.error('Error initializing routes:', error);
+            console.error("Error initializing routes:", error);
         }
     }
 }
