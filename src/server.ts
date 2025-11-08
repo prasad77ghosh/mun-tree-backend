@@ -3,13 +3,17 @@ import { port } from "./config";
 
 const appInstance = new App();
 
-// Initialize the app
-appInstance.init();
+// Initialize routes and middlewares before export
+// (async () => {
+//   try {
+//     await appInstance.init();
+//     console.log("✅ App initialized successfully for Vercel deployment");
+//   } catch (error) {
+//     console.error("❌ App initialization failed:", error);
+//   }
+// })();
 
-// For local development
-// if (process.env.NODE_ENV !== 'production') {
-//   appInstance.listen(port);
-// }
+// appInstance.listen(port)
 
-// For Vercel
+// 👇 Export the Express app as the default export for Vercel
 export default appInstance.app;

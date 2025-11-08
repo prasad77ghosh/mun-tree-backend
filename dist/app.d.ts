@@ -4,10 +4,8 @@ declare class App {
     app: Application;
     static server: Server;
     constructor();
+    private initializeRoutes;
     listen(serverPort: number): void;
-    init(): Promise<void>;
-    private middleware;
-    private routes;
 }
 export default App;
 //# sourceMappingURL=app.d.ts.map

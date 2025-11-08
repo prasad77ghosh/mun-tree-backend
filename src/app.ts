@@ -1,9 +1,17 @@
 import express, { Application } from "express";
 import { createServer, Server } from "http";
-import path from "path";
-import fs from "fs";
-import DB from "./db/databse";
 import cors from "cors";
+import helmet from "helmet";
+import cookieParser from "cookie-parser";
+import DB from "./db/databse";
+
+// Middlewares
+import TopMiddleWare from "./middlewares/top.middleware";
+import BottomMiddleware from "./middlewares/bottom.middleware";
+
+// Routes
+import AuthRoutes from "./routes/auth.routes";
+import NodeRoutes from "./routes/node.routes";
 
 class App {
   public app: Application;
@@ -11,18 +19,39 @@ class App {
 
   constructor() {
     this.app = express();
+
+    // --- Security and Parsing Middlewares ---
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(cookieParser());
+    this.app.use(helmet());
+
+    // --- CORS Configuration ---
     this.app.use(
       cors({
-        origin: "https://num-tree-frontend.vercel.app",
+        origin: [
+          "https://num-tree-frontend.vercel.app",
+          "http://localhost:3000",
+          "http://localhost:5173",
+        ],
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
+        allowedHeaders: [
+          "Content-Type",
+          "Authorization",
+          "X-Requested-With",
+          "X-Otp-Token",
+        ],
         credentials: true,
       })
     );
 
+    // --- Custom Top Middleware (CORS + Cache) ---
+    new TopMiddleWare(this.app);
+
+    // --- DB Connection ---
     DB.connect();
 
-    // Basic routes
+    // --- Health Check ---
     this.app.get("/healthcheck", async (req, res) => {
       try {
         await DB.connect();
@@ -34,57 +63,31 @@ class App {
       }
     });
 
+    // --- Root Route ---
     this.app.get("/", (req, res) => {
-      res.json("it's working....");
+      res.json({ message: "NumTree backend running successfully 🚀" });
     });
+
+    // --- API Routes ---
+    this.initializeRoutes();
+
+    // --- Bottom Middleware (Error handling) ---
+    new BottomMiddleware(this.app);
+  }
+
+  private initializeRoutes() {
+    const authRoutes = new AuthRoutes();
+    const nodeRoutes = new NodeRoutes();
+
+    this.app.use(`/api/v1/${authRoutes.path}`, authRoutes.router);
+    this.app.use(`/api/v1/${nodeRoutes.path}`, nodeRoutes.router);
   }
 
   public listen(serverPort: number) {
-    const options = {};
-    App.server = createServer(options, this.app);
-    App.server.listen(serverPort, (): void => {
-      const middlewares = fs.readdirSync(path.join(__dirname, "/middlewares"));
-      this.middleware(middlewares, "top.");
-      this.init();
-      this.middleware(middlewares, "bottom.");
-      console.log(`Listening on ${serverPort}...`);
+    App.server = createServer(this.app);
+    App.server.listen(serverPort, () => {
+      console.log(`✅ Server running on port ${serverPort}`);
     });
-  }
-
-  public async init() {
-    await this.routes();
-  }
-
-  private middleware(middlewares: any[], str: "bottom." | "top.") {
-    middlewares.forEach((middleware) => {
-      if (middleware.includes(str)) {
-        import(path.join(__dirname + "/middlewares/" + middleware)).then(
-          (middleReader) => {
-            new middleReader.default(this.app);
-          }
-        );
-      }
-    });
-  }
-
-  private async routes() {
-    try {
-      // Import routes directly instead of using fs
-      const authRoutes = (await import("./routes/auth.routes")).default;
-      const nodeRoutes = (await import("./routes/node.routes")).default;
-
-      // Initialize routes
-      const auth = new authRoutes();
-      const node = new nodeRoutes();
-
-      // Mount routes
-      this.app.use(`/api/v1/${auth.path}`, auth.router);
-      this.app.use(`/api/v1/${node.path}`, node.router);
-
-      console.log("Routes initialized successfully");
-    } catch (error) {
-      console.error("Error initializing routes:", error);
-    }
   }
 }
 
