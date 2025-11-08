@@ -27,13 +27,9 @@ export declare class NodeService {
         }> & {
             __v: number;
         }) | null;
-        nodes: (mongoose.FlattenMaps<import("../model/node.model").INode> & Required<{
-            _id: mongoose.FlattenMaps<unknown>;
-        }> & {
-            __v: number;
-        })[];
-        count: number;
-        nextCursor: mongoose.FlattenMaps<unknown> | null | undefined;
+        nodes: any;
+        count: any;
+        nextCursor: any;
         hasMore: boolean;
     }>;
     static getRepliesFast(parentId: string, cursor?: string, limit?: number): Promise<{
