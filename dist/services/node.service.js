@@ -77,124 +77,178 @@ class NodeService {
         return newNode;
     }
     static async getRoots(cursor, limit = 10) {
-        const matchStage = {
-            $match: { parentId: null },
-        };
-        if (cursor) {
-            matchStage.$match.createdAt = { $lt: new Date(cursor) };
-        }
-        const pipeline = [
-            matchStage,
-            // Lookup all nodes with same rootId to count replies
-            {
-                $lookup: {
-                    from: "nodes",
-                    localField: "_id",
-                    foreignField: "rootId",
-                    as: "children",
-                },
-            },
-            {
-                $addFields: {
-                    replyCount: {
-                        $max: [{ $subtract: [{ $size: "$children" }, 1] }, 0],
+        try {
+            // Set a reasonable timeout for the aggregation
+            const options = { maxTimeMS: 20000 };
+            const matchStage = {
+                $match: { parentId: null },
+            };
+            if (cursor) {
+                matchStage.$match.createdAt = { $lt: new Date(cursor) };
+            }
+            // Split the heavy operation into two steps
+            // Step 1: Get root nodes with basic info
+            const rootNodes = await node_model_1.NodeSchema.find({ parentId: null })
+                .sort({ createdAt: -1 })
+                .limit(limit + 1)
+                .lean()
+                .exec();
+            if (!rootNodes.length) {
+                return {
+                    roots: [],
+                    pagination: {
+                        nextCursor: null,
+                        hasNextPage: false,
+                        limit,
+                    },
+                };
+            }
+            // Step 2: Get additional info for these specific roots
+            const rootIds = rootNodes.map(node => node._id);
+            const pipeline = [
+                {
+                    $match: {
+                        _id: { $in: rootIds },
                     },
                 },
-            },
-            // Fetch author info
-            {
-                $lookup: {
-                    from: "users", // make sure this matches your actual Mongo collection name
-                    localField: "authorId",
-                    foreignField: "_id",
-                    as: "author",
+                // Count replies efficiently
+                {
+                    $lookup: {
+                        from: "nodes",
+                        let: { rootId: "$_id" },
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: { $eq: ["$rootId", "$$rootId"] },
+                                },
+                            },
+                            {
+                                $count: "count",
+                            },
+                        ],
+                        as: "replyCountArr",
+                    },
                 },
-            },
-            {
-                $unwind: {
-                    path: "$author",
-                    preserveNullAndEmptyArrays: true,
+                // Fetch author info
+                {
+                    $lookup: {
+                        from: "users",
+                        let: { authorId: "$authorId" },
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: { $eq: ["$_id", "$$authorId"] },
+                                },
+                            },
+                            {
+                                $project: {
+                                    _id: 1,
+                                    name: 1,
+                                    email: 1,
+                                    avatar: 1,
+                                },
+                            },
+                        ],
+                        as: "author",
+                    },
                 },
-            },
-            {
-                $project: {
-                    _id: 1,
-                    leftValue: 1,
-                    result: 1,
-                    replyCount: 1,
-                    createdAt: 1,
-                    "author._id": 1,
-                    "author.name": 1,
-                    "author.email": 1, // include email if needed
-                    "author.avatar": 1, // or avatar if you have one
+                {
+                    $addFields: {
+                        replyCount: {
+                            $subtract: [
+                                { $ifNull: [{ $arrayElemAt: ["$replyCountArr.count", 0] }, 0] },
+                                1,
+                            ],
+                        },
+                        author: { $arrayElemAt: ["$author", 0] },
+                    },
                 },
-            },
-            { $sort: { createdAt: -1 } },
-            { $limit: limit + 1 },
-        ];
-        const roots = await node_model_1.NodeSchema.aggregate(pipeline);
-        const hasNextPage = roots.length > limit;
-        const paginatedRoots = hasNextPage ? roots.slice(0, -1) : roots;
-        const nextCursor = hasNextPage
-            ? paginatedRoots[paginatedRoots.length - 1].createdAt
-            : null;
-        return {
-            roots: paginatedRoots,
-            pagination: {
-                nextCursor,
-                hasNextPage,
-                limit,
-            },
-        };
-    }
-    static async getTree(rootId, cursor, limit = 1000) {
-        const queryLimit = Math.min(limit, 2000); // safety cap
-        if (!mongoose_1.default.Types.ObjectId.isValid(rootId)) {
-            throw new Error("Invalid rootId");
-        }
-        const query = { rootId: new mongoose_1.default.Types.ObjectId(rootId) };
-        // Cursor-based pagination (only newer ObjectIds)
-        if (cursor && mongoose_1.default.Types.ObjectId.isValid(cursor)) {
-            query._id = { $gt: new mongoose_1.default.Types.ObjectId(cursor) };
-        }
-        // Fetch paginated nodes
-        const nodes = await node_model_1.NodeSchema.find(query)
-            .sort({ _id: 1 }) // ascending
-            .limit(queryLimit)
-            .select("_id parentId rootId operation rightValue result authorId status createdAt")
-            .populate("authorId", "username")
-            .lean();
-        // If empty
-        if (!nodes.length) {
+                {
+                    $project: {
+                        _id: 1,
+                        leftValue: 1,
+                        result: 1,
+                        replyCount: 1,
+                        createdAt: 1,
+                        author: 1,
+                        replyCountArr: 0,
+                    },
+                },
+            ];
+            const roots = await node_model_1.NodeSchema.aggregate(pipeline);
+            const hasNextPage = rootNodes.length > limit;
+            const paginatedRoots = hasNextPage ? roots.slice(0, -1) : roots;
+            const nextCursor = hasNextPage
+                ? paginatedRoots[paginatedRoots.length - 1].createdAt
+                : null;
             return {
-                message: "No more nodes",
-                rootId,
-                rootNode: null,
-                nodes: [],
-                count: 0,
-                nextCursor: null,
-                hasMore: false,
+                roots: paginatedRoots,
+                pagination: {
+                    nextCursor,
+                    hasNextPage,
+                    limit,
+                },
             };
         }
-        // Fetch rootNode only if cursor is not provided (first page)
-        let rootNode = null;
-        if (!cursor) {
-            rootNode = await node_model_1.NodeSchema.findOne({ _id: rootId, parentId: null })
-                .populate("authorId", "username")
-                .select("_id parentId rootId operation rightValue result authorId status createdAt")
-                .lean();
+        catch (error) {
+            console.error('Error in getRoots:', error);
+            throw error;
         }
-        // Determine next cursor
-        const nextCursor = nodes.length === queryLimit ? nodes[nodes.length - 1]._id : null;
-        return {
-            message: "Nodes fetched successfully",
-            rootId,
-            rootNode,
-            nodes,
-            count: nodes.length,
-            nextCursor,
-            hasMore: Boolean(nextCursor),
-        };
+    }
+    static async getTree(rootId, cursor, limit = 1000) {
+        try {
+            const queryLimit = Math.min(limit, 2000); // safety cap
+            if (!mongoose_1.default.Types.ObjectId.isValid(rootId)) {
+                throw new Error("Invalid rootId");
+            }
+            const query = { rootId: new mongoose_1.default.Types.ObjectId(rootId) };
+            // Cursor-based pagination (only newer ObjectIds)
+            if (cursor && mongoose_1.default.Types.ObjectId.isValid(cursor)) {
+                query._id = { $gt: new mongoose_1.default.Types.ObjectId(cursor) };
+            }
+            // Execute queries in parallel
+            const [nodes, rootNode] = await Promise.all([
+                node_model_1.NodeSchema.find(query)
+                    .sort({ _id: 1 })
+                    .limit(queryLimit)
+                    .select("_id parentId rootId operation rightValue result authorId status createdAt")
+                    .populate("authorId", "username")
+                    .lean()
+                    .exec(),
+                !cursor ? node_model_1.NodeSchema.findOne({ _id: rootId, parentId: null })
+                    .populate("authorId", "username")
+                    .select("_id parentId rootId operation rightValue result authorId status createdAt")
+                    .lean()
+                    .exec() : null
+            ]);
+            // If empty
+            if (!nodes.length) {
+                return {
+                    message: "No more nodes",
+                    rootId,
+                    rootNode: null,
+                    nodes: [],
+                    count: 0,
+                    nextCursor: null,
+                    hasMore: false,
+                };
+            }
+            // Determine next cursor
+            const nextCursor = nodes.length === queryLimit ? nodes[nodes.length - 1]?._id : null;
+            return {
+                message: "Nodes fetched successfully",
+                rootId,
+                rootNode,
+                nodes,
+                count: nodes.length,
+                nextCursor,
+                hasMore: Boolean(nextCursor),
+            };
+        }
+        catch (error) {
+            console.error('Error in getTree:', error);
+            throw error;
+        }
     }
     static async getRepliesFast(parentId, cursor, limit = 10) {
         if (!mongoose_1.default.Types.ObjectId.isValid(parentId)) {

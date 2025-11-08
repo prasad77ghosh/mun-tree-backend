@@ -54,133 +54,180 @@ export class NodeService {
   }
 
   static async getRoots(cursor?: string, limit: number = 10) {
-    const matchStage: PipelineStage.Match = {
-      $match: { parentId: null },
-    };
+    try {
+      // Set a reasonable timeout for the aggregation
+      const options = { maxTimeMS: 20000 };
+      
+      const matchStage: PipelineStage.Match = {
+        $match: { parentId: null },
+      };
 
-    if (cursor) {
-      matchStage.$match.createdAt = { $lt: new Date(cursor) };
-    }
+      if (cursor) {
+        matchStage.$match.createdAt = { $lt: new Date(cursor) };
+      }
 
-    const pipeline: PipelineStage[] = [
-      matchStage,
-      // Lookup all nodes with same rootId to count replies
-      {
-        $lookup: {
-          from: "nodes",
-          localField: "_id",
-          foreignField: "rootId",
-          as: "children",
-        },
-      },
-      {
-        $addFields: {
-          replyCount: {
-            $max: [{ $subtract: [{ $size: "$children" }, 1] }, 0],
+      // Split the heavy operation into two steps
+      // Step 1: Get root nodes with basic info
+      const rootNodes = await NodeSchema.find({ parentId: null })
+        .sort({ createdAt: -1 })
+        .limit(limit + 1)
+        .lean()
+        .exec();
+
+      if (!rootNodes.length) {
+        return {
+          roots: [],
+          pagination: {
+            nextCursor: null,
+            hasNextPage: false,
+            limit,
+          },
+        };
+      }
+
+      // Step 2: Get additional info for these specific roots
+      const rootIds = rootNodes.map(node => node._id);
+      const pipeline: PipelineStage[] = [
+        {
+          $match: {
+            _id: { $in: rootIds },
           },
         },
-      },
-      // Fetch author info
-      {
-        $lookup: {
-          from: "users", // make sure this matches your actual Mongo collection name
-          localField: "authorId",
-          foreignField: "_id",
-          as: "author",
+        // Count replies efficiently
+        {
+          $lookup: {
+            from: "nodes",
+            let: { rootId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$rootId", "$$rootId"] },
+                },
+              },
+              {
+                $count: "count",
+              },
+            ],
+            as: "replyCountArr",
+          },
         },
-      },
-      {
-        $unwind: {
-          path: "$author",
-          preserveNullAndEmptyArrays: true,
+        // Fetch author info
+        {
+          $lookup: {
+            from: "users",
+            let: { authorId: "$authorId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", "$$authorId"] },
+                },
+              },
+              {
+                $project: {
+                  _id: 1,
+                  name: 1,
+                  email: 1,
+                  avatar: 1,
+                },
+              },
+            ],
+            as: "author",
+          },
         },
-      },
-      {
-        $project: {
-          _id: 1,
-          leftValue: 1,
-          result: 1,
-          replyCount: 1,
-          createdAt: 1,
-          "author._id": 1,
-          "author.name": 1,
-          "author.email": 1, // include email if needed
-          "author.avatar": 1, // or avatar if you have one
+        {
+          $addFields: {
+            replyCount: {
+              $subtract: [
+                { $ifNull: [{ $arrayElemAt: ["$replyCountArr.count", 0] }, 0] },
+                1,
+              ],
+            },
+            author: { $arrayElemAt: ["$author", 0] },
+          },
         },
-      },
-      { $sort: { createdAt: -1 } },
-      { $limit: limit + 1 },
-    ];
+        {
+          $project: {
+            _id: 1,
+            leftValue: 1,
+            result: 1,
+            replyCount: 1,
+            createdAt: 1,
+            author: 1,
+            replyCountArr: 0,
+          },
+        },
+      ];
 
     const roots = await NodeSchema.aggregate(pipeline);
+      
+      const hasNextPage = rootNodes.length > limit;
+      const paginatedRoots = hasNextPage ? roots.slice(0, -1) : roots;
+      const nextCursor = hasNextPage
+        ? paginatedRoots[paginatedRoots.length - 1].createdAt
+        : null;
 
-    const hasNextPage = roots.length > limit;
-    const paginatedRoots = hasNextPage ? roots.slice(0, -1) : roots;
-    const nextCursor = hasNextPage
-      ? paginatedRoots[paginatedRoots.length - 1].createdAt
-      : null;
-
-    return {
-      roots: paginatedRoots,
-      pagination: {
-        nextCursor,
-        hasNextPage,
-        limit,
-      },
-    };
+      return {
+        roots: paginatedRoots,
+        pagination: {
+          nextCursor,
+          hasNextPage,
+          limit,
+        },
+      };
+    } catch (error) {
+      console.error('Error in getRoots:', error);
+      throw error;
+    }
   }
 
   static async getTree(rootId: string, cursor?: string, limit: number = 1000) {
-    const queryLimit = Math.min(limit, 2000); // safety cap
+    try {
+      const queryLimit = Math.min(limit, 2000); // safety cap
 
-    if (!mongoose.Types.ObjectId.isValid(rootId)) {
-      throw new Error("Invalid rootId");
-    }
+      if (!mongoose.Types.ObjectId.isValid(rootId)) {
+        throw new Error("Invalid rootId");
+      }
 
-    const query: any = { rootId: new mongoose.Types.ObjectId(rootId) };
+      const query: any = { rootId: new mongoose.Types.ObjectId(rootId) };
 
-    // Cursor-based pagination (only newer ObjectIds)
-    if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
-      query._id = { $gt: new mongoose.Types.ObjectId(cursor) };
-    }
+      // Cursor-based pagination (only newer ObjectIds)
+      if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
+        query._id = { $gt: new mongoose.Types.ObjectId(cursor) };
+      }
 
-    // Fetch paginated nodes
-    const nodes: any = await NodeSchema.find(query)
-      .sort({ _id: 1 }) // ascending
-      .limit(queryLimit)
-      .select(
-        "_id parentId rootId operation rightValue result authorId status createdAt"
-      )
-      .populate("authorId", "username")
-      .lean();
+      // Execute queries in parallel
+      const [nodes, rootNode] = await Promise.all([
+        NodeSchema.find(query)
+          .sort({ _id: 1 })
+          .limit(queryLimit)
+          .select("_id parentId rootId operation rightValue result authorId status createdAt")
+          .populate("authorId", "username")
+          .lean()
+          .exec(),
+          
+        !cursor ? NodeSchema.findOne({ _id: rootId, parentId: null })
+          .populate("authorId", "username")
+          .select("_id parentId rootId operation rightValue result authorId status createdAt")
+          .lean()
+          .exec() : null
+      ]);
 
-    // If empty
-    if (!nodes.length) {
-      return {
-        message: "No more nodes",
-        rootId,
-        rootNode: null,
-        nodes: [],
-        count: 0,
-        nextCursor: null,
-        hasMore: false,
-      };
-    }
-
-    // Fetch rootNode only if cursor is not provided (first page)
-    let rootNode = null;
-    if (!cursor) {
-      rootNode = await NodeSchema.findOne({ _id: rootId, parentId: null })
-        .populate("authorId", "username")
-        .select(
-          "_id parentId rootId operation rightValue result authorId status createdAt"
-        )
-        .lean();
-    }
+      // If empty
+      if (!nodes.length) {
+        return {
+          message: "No more nodes",
+          rootId,
+          rootNode: null,
+          nodes: [],
+          count: 0,
+          nextCursor: null,
+          hasMore: false,
+        };
+      }
 
     // Determine next cursor
     const nextCursor =
-      nodes.length === queryLimit ? nodes[nodes.length - 1]._id : null;
+      nodes.length === queryLimit ? nodes[nodes.length - 1]?._id : null;
 
     return {
       message: "Nodes fetched successfully",
@@ -191,6 +238,10 @@ export class NodeService {
       nextCursor,
       hasMore: Boolean(nextCursor),
     };
+    } catch (error) {
+      console.error('Error in getTree:', error);
+      throw error;
+    }
   }
 
   static async getRepliesFast(

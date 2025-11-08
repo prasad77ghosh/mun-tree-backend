@@ -55,15 +55,30 @@ class App {
             allowedHeaders: ["Content-Type", "Authorization"],
             credentials: true,
         }));
+        // Middleware to ensure database connection
+        this.app.use(async (req, res, next) => {
+            try {
+                await databse_1.default.connect();
+                next();
+            }
+            catch (error) {
+                console.error('Database connection error:', error);
+                res.status(500).json({ error: 'Database connection failed' });
+            }
+        });
         // Basic routes
-        this.app.get("/healthcheck", (req, res) => {
-            res.json({ status: "ok", message: "Healthcheck passed" });
+        this.app.get("/healthcheck", async (req, res) => {
+            try {
+                await databse_1.default.connect();
+                res.json({ status: "ok", message: "Healthcheck passed" });
+            }
+            catch (error) {
+                res.status(500).json({ status: "error", message: "Database connection failed" });
+            }
         });
         this.app.get("/", (req, res) => {
             res.json("it's working....");
         });
-        // Connect to database
-        databse_1.default.connect();
     }
     listen(serverPort) {
         const options = {};
