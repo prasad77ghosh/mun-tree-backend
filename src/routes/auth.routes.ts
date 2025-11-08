@@ -6,7 +6,7 @@ import ProtectedMiddleware from "../middlewares/protected.middleware";
 export default class AuthRoutes {
   public router: Router;
   private authController: AuthController;
-  public path = "api/v1/auth";
+  public path = "auth";
 
   constructor() {
     this.router = Router();

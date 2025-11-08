@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const express_1 = __importDefault(require("express"));
+const helmet_1 = __importDefault(require("helmet"));
 class TopMiddleWare {
     constructor(app) {
         app.use(express_1.default.json());
@@ -12,6 +13,7 @@ class TopMiddleWare {
         app.use(this.allowCrossDomain);
         app.use(this.cacheClear);
         app.use((0, cookie_parser_1.default)());
+        app.use((0, helmet_1.default)());
     }
     allowCrossDomain(req, res, next) {
         const allAllowedOrigin = [

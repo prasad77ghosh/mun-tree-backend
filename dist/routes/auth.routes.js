@@ -10,7 +10,7 @@ const protected_middleware_1 = __importDefault(require("../middlewares/protected
 class AuthRoutes {
     router;
     authController;
-    path = "api/v1/auth";
+    path = "auth";
     constructor() {
         this.router = (0, express_1.Router)();
         this.authController = new auth_controller_1.AuthController();

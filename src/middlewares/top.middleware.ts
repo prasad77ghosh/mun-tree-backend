@@ -1,5 +1,6 @@
 import cookieParser from "cookie-parser";
 import express, { Application, NextFunction, Request, Response } from "express";
+import helmet from "helmet";
 
 class TopMiddleWare {
   constructor(app: Application) {
@@ -8,6 +9,7 @@ class TopMiddleWare {
     app.use(this.allowCrossDomain);
     app.use(this.cacheClear);
     app.use(cookieParser());
+    app.use(helmet())
   }
 
   private allowCrossDomain(req: Request, res: Response, next: NextFunction) {
