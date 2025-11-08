@@ -5,10 +5,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const app_1 = __importDefault(require("./app"));
 const appInstance = new app_1.default();
-// Export the Express app instance directly
+// Initialize the app
+appInstance.init();
+// For local development
+// if (process.env.NODE_ENV !== 'production') {
+//   appInstance.listen(port);
+// }
+// For Vercel
 exports.default = appInstance.app;
-// import App from "./app";
-// import { port } from "./config";
-// const app = new App();
-// app.listen(port);
 //# sourceMappingURL=server.js.map

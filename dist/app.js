@@ -47,19 +47,22 @@ class App {
     static server;
     constructor() {
         this.app = (0, express_1.default)();
+        this.app.use(express_1.default.json());
+        this.app.use(express_1.default.urlencoded({ extended: true }));
         this.app.use((0, cors_1.default)({
             origin: "https://num-tree-frontend.vercel.app",
             methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             allowedHeaders: ["Content-Type", "Authorization"],
             credentials: true,
         }));
-        // Your other routes and middleware
+        // Basic routes
         this.app.get("/healthcheck", (req, res) => {
             res.json({ status: "ok", message: "Healthcheck passed" });
         });
         this.app.get("/", (req, res) => {
             res.json("it's working....");
         });
+        // Connect to database
         databse_1.default.connect();
     }
     listen(serverPort) {
@@ -86,15 +89,20 @@ class App {
         });
     }
     async routes() {
-        const subRoutes = fs_1.default.readdirSync(path_1.default.join(__dirname, "/routes"));
-        for (const file of subRoutes) {
-            if (file.includes(".routes.")) {
-                const routeModule = await Promise.resolve(`${path_1.default.join(__dirname, "/routes/", file)}`).then(s => __importStar(require(s)));
-                const routeInstance = new routeModule.default();
-                const rootPath = `/api/v1/${routeInstance.path}`;
-                console.log("root-path--->", rootPath);
-                this.app.use(rootPath, routeInstance.router);
-            }
+        try {
+            // Import routes directly instead of using fs
+            const authRoutes = (await Promise.resolve().then(() => __importStar(require('./routes/auth.routes')))).default;
+            const nodeRoutes = (await Promise.resolve().then(() => __importStar(require('./routes/node.routes')))).default;
+            // Initialize routes
+            const auth = new authRoutes();
+            const node = new nodeRoutes();
+            // Mount routes
+            this.app.use(`/api/v1/${auth.path}`, auth.router);
+            this.app.use(`/api/v1/${node.path}`, node.router);
+            console.log('Routes initialized successfully');
+        }
+        catch (error) {
+            console.error('Error initializing routes:', error);
         }
     }
 }

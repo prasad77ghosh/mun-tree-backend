@@ -11,6 +11,8 @@ class App {
 
   constructor() {
     this.app = express();
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: true }));
     this.app.use(
       cors({
         origin: "https://num-tree-frontend.vercel.app",
@@ -20,7 +22,7 @@ class App {
       })
     );
 
-    // Your other routes and middleware
+    // Basic routes
     this.app.get("/healthcheck", (req, res) => {
       res.json({ status: "ok", message: "Healthcheck passed" });
     });
@@ -28,6 +30,8 @@ class App {
     this.app.get("/", (req, res) => {
       res.json("it's working....");
     });
+    
+    // Connect to database
     DB.connect();
   }
 
@@ -62,17 +66,22 @@ class App {
   }
 
   private async routes() {
-    const subRoutes = fs.readdirSync(path.join(__dirname, "/routes"));
-    for (const file of subRoutes) {
-      if (file.includes(".routes.")) {
-        const routeModule = await import(
-          path.join(__dirname, "/routes/", file)
-        );
-        const routeInstance = new routeModule.default();
-        const rootPath = `/api/v1/${routeInstance.path}`;
-        console.log("root-path--->", rootPath)
-        this.app.use(rootPath, routeInstance.router);
-      }
+    try {
+      // Import routes directly instead of using fs
+      const authRoutes = (await import('./routes/auth.routes')).default;
+      const nodeRoutes = (await import('./routes/node.routes')).default;
+
+      // Initialize routes
+      const auth = new authRoutes();
+      const node = new nodeRoutes();
+
+      // Mount routes
+      this.app.use(`/api/v1/${auth.path}`, auth.router);
+      this.app.use(`/api/v1/${node.path}`, node.router);
+
+      console.log('Routes initialized successfully');
+    } catch (error) {
+      console.error('Error initializing routes:', error);
     }
   }
 }
